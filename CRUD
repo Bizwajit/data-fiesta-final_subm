@@ -1,0 +1,170 @@
+from flask import Flask, jsonify, request
+from flasgger import Swagger
+
+app = Flask(__name__)
+swagger = Swagger(app)
+
+# Sample data
+employees = {
+    1: {'id': 1, 'name': 'John Doe', 'email': 'johndoe@example.com'},
+    2: {'id': 2, 'name': 'Jane Smith', 'email': 'janesmith@example.com'}
+}
+
+# Get all employees
+@app.route('/employees', methods=['GET'])
+def get_employees():
+    """
+    Get all employees
+    ---
+    responses:
+      200:
+        description: A list of all employees
+        examples:
+          application/json: 
+            {
+              "1": {"id": 1, "name": "John Doe", "email": "johndoe@example.com"},
+              "2": {"id": 2, "name": "Jane Smith", "email": "janesmith@example.com"}
+            }
+    """
+    return employees
+
+
+# Get a specific employee by ID
+@app.route('/employees/<int:employee_id>', methods=['GET'])
+def get_employee(employee_id):
+    """
+    Get an employee by ID
+    ---
+    parameters:
+      - name: employee_id
+        in: path
+        type: integer
+        required: true
+        description: The ID of the employee
+    responses:
+      200:
+        description: Employee found
+      404:
+        description: Employee not found
+    """
+    for employee in employees.values():
+        if employee['id'] == employee_id:
+            return employee
+    return {'error': 'Employee not found'}, 404
+
+
+# Create an employee
+@app.route('/employees', methods=['POST'])
+def create_employee():
+    """
+    Create a new employee
+    ---
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          id: Employee
+          required:
+            - name
+            - email
+          properties:
+            name:
+              type: string
+              description: Name of the employee
+            email:
+              type: string
+              description: Email of the employee
+    responses:
+      201:
+        description: Employee created successfully
+      400:
+        description: Invalid input
+    """
+    data = request.get_json()
+    if not data or 'name' not in data or 'email' not in data:
+        return jsonify({'error': 'Missing name or email in request'}), 400
+
+    new_id = max(employees.keys()) + 1 if employees else 1
+    new_employee = {
+        'id': new_id,
+        'name': data['name'],
+        'email': data['email']
+    }
+    employees[new_id] = new_employee
+    return jsonify(new_employee), 201
+
+
+# Update an employee
+@app.route('/employees/<int:employee_id>', methods=['PUT'])
+def update_employee(employee_id):
+    """
+    Update an existing employee
+    ---
+    parameters:
+      - name: employee_id
+        in: path
+        type: integer
+        required: true
+        description: ID of the employee to update
+      - in: body
+        name: body
+        required: true
+        schema:
+          id: EmployeeUpdate
+          required:
+            - name
+            - email
+          properties:
+            name:
+              type: string
+            email:
+              type: string
+    responses:
+      200:
+        description: Employee updated successfully
+      400:
+        description: Invalid input
+      404:
+        description: Employee not found
+    """
+    if employee_id in employees:
+        data = request.get_json()
+        if not data or 'name' not in data or 'email' not in data:
+            return {'error': 'Missing name or email'}, 400
+
+        employees[employee_id]['name'] = data['name']
+        employees[employee_id]['email'] = data['email']
+        return jsonify(employees[employee_id])
+    
+    return {'error': 'Employee not found'}, 404
+
+
+# Delete an employee
+@app.route('/employees/<int:employee_id>', methods=['DELETE'])
+def delete_employee(employee_id):
+    """
+    Delete an employee by ID
+    ---
+    parameters:
+      - name: employee_id
+        in: path
+        type: integer
+        required: true
+        description: ID of the employee to delete
+    responses:
+      200:
+        description: Employee deleted successfully
+      404:
+        description: Employee not found
+    """
+    if employee_id in employees:
+        del employees[employee_id]
+        return {"data": "Employee deleted successfully"}
+    
+    return {'error': 'Employee not found'}, 404
+
+
+# Run the flask App
+if __name__ == '__main__':
+    app.run(debug=True)
